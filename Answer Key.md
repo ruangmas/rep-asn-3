@@ -12,26 +12,63 @@ NOx Budget Program* by Deschênes et al. (2017).
 Step 1: Declare that you will use the **tidyverse** and **knitr**
 package. **(2 points)**
 
+``` r
+library("tidyverse")
+library("knitr")
+```
+
 Step 2: Upload pollution emissions data from the year 2001 to 2007 into
 the environment and combine them together into one dataframe called
 **df. (2 points)**
 
+``` r
+df2001<-read.csv("EPA AMPD/emission_2001.csv")
+df2002<-read.csv("EPA AMPD/emission_2002.csv")
+df2003<-read.csv("EPA AMPD/emission_2003.csv")
+df2004<-read.csv("EPA AMPD/emission_2004.csv")
+df2005<-read.csv("EPA AMPD/emission_2005.csv")
+df2006<-read.csv("EPA AMPD/emission_2006.csv")
+df2007<-read.csv("EPA AMPD/emission_2007.csv")
+
+df<-rbind(df2001, df2002, df2003, df2004, df2005, df2006, df2007)
+```
+
 #### Question 1: What is the unit of NOx, SO2, and CO2 pollution emissions in Table 1? Fill in the blank. **(3 points)**
 
-#### Answer: \_\_\_\_\_ tons per \_\_\_\_\_ (state/city/county) during the \_\_\_\_ months of each year.
+#### Answer: Thousand tons per county (state/city/county) during the summer months of each year.
 
 Step 3: Create a new dataframe named **df2** which has the total
 **summertime** NOx, SO2, and CO2 emissions (in **thousand tons**) for
 each **County**, **State**, and **Year**. Note that the summer months
 include May through September. **(4 points)**
 
+``` r
+df2<-df %>%
+  filter(Month>=5 & Month<=9) %>%
+  mutate(NOx=ifelse(!is.na(NOx..tons.), NOx..tons., 0)) %>%
+  mutate(SO2=ifelse(!is.na(SO2..tons.), SO2..tons., 0)) %>%
+  mutate(CO2=ifelse(!is.na(CO2..short.tons.), CO2..short.tons., 0)) %>%
+  group_by(County, State, Year) %>%
+  summarize(NOx=sum(NOx)/1000, SO2=sum(SO2)/1000, CO2=sum(CO2)/1000)
+```
+
 #### **Question 2: The script below shows the number of observations per county. Ideally, a county should have 7 observations as there are 7 years of data. Why does Acadia Parish have only 6 observations? Why does Adams County have 35 observations? (2 points)**
 
 #### Answer:
 
+#### There are no large electricity generating units in Acadia Parish in 2001, so they did not report their emissions.
+
+**Adams County exists in many states (CO, MS, NE, OH, PA)**
+
 ``` r
 head(table(df2$County))
 ```
+
+
+      Acadia Parish Accomack County    Adams County    Aiken County  Alachua County 
+                  6               7              35               7               7 
+      Albany County 
+                  7 
 
 Step 4: In this step, you will create a list of counties used in
 Deschenes et al. (2017).
@@ -40,6 +77,10 @@ Step 4.1: First, you will need to upload *counties_list.csv*, which
 contains the list of every county in the United States, into the RStudio
 environment. Call the dataframe **counties**. **(1 point)**
 
+``` r
+counties<-read.csv("counties_list.csv")
+```
+
 Step 4.2: According to the paragraph below, Deschenes et al. (2017)
 analyzed units regulated by the Acid Rain Program. Create a new
 dataframe called **df3** from **df** which contains only units that were
@@ -47,6 +88,11 @@ regulated by the Acid Rain Program. Note that these units have the value
 “**ARP**” or “**ARP, NBP**” in the Program.s. column. **(2 points)**
 
 <img src="emit_data.JPG" data-fig-align="center" width="400" />
+
+``` r
+df3<-df %>%
+  filter(Program.s.=="ARP" | Program.s.=="ARP, NBP")
+```
 
 Step 4.3: The script below keeps only counties used in the analysis by
 Deschenes et al. (2017).
@@ -91,7 +137,7 @@ Step 6: Next, we will add the emissions data from **df2** into **cy**.
 
 #### Question 3: What three variables do df2 and cy have in common? (3 points)
 
-#### Answer:
+#### Answer: County, State, Year
 
 Step 6.1: Add the emissions data from **df2** into **cy** by using the
 **merge** function by matching observations that has the same **State**,
@@ -105,9 +151,20 @@ Hint: You learned how to do this in [this DataCamp
 video.](https://campus.datacamp.com/courses/joining-data-with-datatable-in-r/joining-multiple-datatables?ex=8)
 **(4 points)**
 
+``` r
+emit<-merge(cy, df2, by=c("State", "County", "Year"), all.x=TRUE)
+```
+
 Step 6.2: Create a new dataframe named **emit2** from **emit.** Replace
 all the NA values that the columns that represent NOx, SO2, and CO2
 emissions with 0. You now have a balanced panel dataframe. **(1 point)**
+
+``` r
+emit2<-emit %>%
+  mutate(NOx=ifelse(!is.na(NOx), NOx, 0)) %>%
+  mutate(SO2=ifelse(!is.na(SO2), SO2, 0)) %>%
+  mutate(CO2=ifelse(!is.na(CO2), CO2, 0)) 
+```
 
 ## Part 2: Summarize emissions variables
 
@@ -116,10 +173,20 @@ the **summarize** and **mean** function to find the average NOx, SO2,
 and CO2 emissions across all counties and years. Name the variables
 **mean_NOx**, **mean_SO2**, and **mean_CO2**. **(1 point)**
 
+``` r
+emit_mean<-emit2 %>%
+  summarize(mean_SO2=mean(SO2), mean_CO2=mean(CO2), mean_NOx=mean(NOx))
+```
+
 Step 2: Create a new dataframe called **emit_sd** from **emit.** Use the
 **summarize** and **sd** function to find the standard deviation of NOx,
 SO2, and CO2 emissions across all counties and years. Name the variables
 **sd_NOx**, **sd_SO2**, and **sd_CO2**. **(1 point)**
+
+``` r
+emit_sd<-emit2 %>%
+  summarize(sd_SO2=sd(SO2), sd_CO2=sd(CO2), sd_NOx=sd(NOx))
+```
 
 Step 3: We will use the **pivot_longer** function to format our results
 in table format of the original paper. The code is shown below. You just
@@ -144,6 +211,12 @@ T1a<-merge(mean_long, sd_long,
 
 kable(T1a, digits=2)
 ```
+
+| Pollution emissions (000’s of tons/summer) |   Mean |      SD |    n |
+|:-------------------------------------------|-------:|--------:|-----:|
+| CO2                                        | 383.86 | 1298.82 | 2542 |
+| NOx                                        |   0.54 |    2.00 | 2542 |
+| SO2                                        |   1.50 |    6.51 | 2542 |
 
 Step 4: Check that your summary statistics are similar to the one in
 Deschenes et al. (2017).
